@@ -63,22 +63,12 @@ export default function Auth() {
 
   const handleSignIn = async (data: AuthForm) => {
     setLoading(true);
-    const { error } = await signIn(data.email, data.password);
+    const result = await signIn(data.email, data.password);
     
-    if (!error) {
-      // Check if user already has MFA configured
-      const { data: factors } = await supabase.auth.mfa.listFactors();
-      console.log('MFA factors:', factors);
-      
-      // Check if there are any verified TOTP factors
-      const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
-        factors.totp.some((factor: any) => factor.status === 'verified');
-      
-      console.log('Has verified MFA:', hasVerifiedMFA);
-      
-      if (hasVerifiedMFA) {
-        // User has MFA enabled, we need to challenge them
-        const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
+    if (!result.error) {
+      if (result.requiresMFA && result.factors) {
+        // User has MFA enabled, create challenge
+        const verifiedFactor = result.factors.find((factor: any) => factor.status === 'verified');
         if (verifiedFactor) {
           try {
             const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
@@ -97,8 +87,15 @@ export default function Auth() {
           }
         }
       } else {
-        // User doesn't have MFA, show setup option
-        setShowMFASetup(true);
+        // No MFA required or user doesn't have MFA, check if we should show setup
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const hasAnyMFA = factors && factors.totp && factors.totp.length > 0;
+        
+        if (!hasAnyMFA) {
+          setShowMFASetup(true);
+        } else {
+          navigate('/');
+        }
       }
     }
     setLoading(false);

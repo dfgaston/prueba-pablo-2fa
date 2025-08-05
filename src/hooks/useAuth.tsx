@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[] }>;
   signOut: () => Promise<void>;
   setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
   verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -90,6 +90,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: error.message,
         variant: "destructive"
       });
+      return { error };
+    }
+
+    // Check the Authentication Assurance Level (AAL)
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    console.log('Current AAL:', aal);
+    
+    // If AAL is only level 1, check if user has MFA factors
+    if (aal && aal.currentLevel === 'aal1') {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
+        factors.totp.some((factor: any) => factor.status === 'verified');
+      
+      if (hasVerifiedMFA) {
+        // Return special indicator that MFA challenge is needed
+        return { error: null, requiresMFA: true, factors: factors.totp };
+      }
     }
 
     return { error };
