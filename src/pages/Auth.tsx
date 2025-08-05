@@ -51,18 +51,21 @@ export default function Auth() {
   });
 
   useEffect(() => {
+    console.log('🔐 version #0001');
     console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
     console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
     console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
     console.log('🔐 [AUTH-COMPONENT] useEffect - mfaInProgress:', mfaInProgress);
+    console.log('🔐 [AUTH-COMPONENT] useEffect - pendingMFAResult:', !!pendingMFAResult);
     
-    if (user && !showMFASetup && !requiresMFAVerification && !mfaInProgress) {
+    // Don't navigate if we have a pending MFA result or any MFA flow is active
+    if (user && !showMFASetup && !requiresMFAVerification && !mfaInProgress && !pendingMFAResult) {
       console.log('🔐 [AUTH-COMPONENT] Usuario autenticado, navegando a /');
       navigate('/');
     } else {
-      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification, 'mfaInProgress:', mfaInProgress);
+      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification, 'mfaInProgress:', mfaInProgress, 'pendingMFAResult:', !!pendingMFAResult);
     }
-  }, [user, navigate, showMFASetup, requiresMFAVerification, mfaInProgress]);
+  }, [user, navigate, showMFASetup, requiresMFAVerification, mfaInProgress, pendingMFAResult]);
 
   const handleSignUp = async (data: AuthForm) => {
     setLoading(true);
@@ -164,17 +167,14 @@ export default function Auth() {
       });
       
       if (!error) {
-        // After successful MFA verification, complete the login
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: mfaChallenge.email,
-          password: mfaChallenge.password,
-        });
+        // Clear all MFA states after successful verification
+        setPendingMFAResult(null);
+        setRequiresMFAVerification(false);
+        setMfaInProgress(false);
+        setMfaChallenge(null);
         
-        if (!loginError) {
-          setRequiresMFAVerification(false);
-          setMfaInProgress(false); // Clear MFA in progress
-          navigate('/');
-        }
+        console.log('🔐 [AUTH-COMPONENT] MFA verificado exitosamente, navegando a /');
+        navigate('/');
       }
     } catch (error) {
       console.error('MFA verification error:', error);
