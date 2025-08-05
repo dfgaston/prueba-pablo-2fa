@@ -65,7 +65,13 @@ export default function Auth() {
     if (!error) {
       // Check if user already has MFA configured
       const { data: factors } = await supabase.auth.mfa.listFactors();
-      const hasVerifiedMFA = factors && (factors as any).totp?.some((factor: any) => factor.status === 'verified');
+      console.log('MFA factors:', factors);
+      
+      // Check if there are any verified TOTP factors
+      const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
+        factors.totp.some((factor: any) => factor.status === 'verified');
+      
+      console.log('Has verified MFA:', hasVerifiedMFA);
       
       if (hasVerifiedMFA) {
         // User already has MFA, redirect to main page
