@@ -10,7 +10,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  setupMFA: () => Promise<{ qrCode: string; secret: string } | null>;
+  setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
   verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
   enableMFA: (token: string, factorId: string) => Promise<{ error: any }>;
 }
@@ -124,7 +124,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return {
         qrCode: data.totp.qr_code,
-        secret: data.totp.secret
+        secret: data.totp.secret,
+        factorId: data.id
       };
     } catch (error) {
       console.error('Error setting up MFA:', error);
@@ -166,9 +167,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const enableMFA = async (token: string, factorId: string) => {
+    // Create a challenge first
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+      factorId
+    });
+
+    if (challengeError) {
+      toast({
+        title: "Error al habilitar 2FA",
+        description: challengeError.message,
+        variant: "destructive"
+      });
+      return { error: challengeError };
+    }
+
+    // Then verify with the challenge
     const { error } = await supabase.auth.mfa.verify({
       factorId,
-      challengeId: '', // This would be provided by the enrollment process
+      challengeId: challengeData.id,
       code: token
     });
 

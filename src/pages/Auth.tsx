@@ -75,7 +75,7 @@ export default function Auth() {
       setMfaSetup({
         qrCode: mfaData.qrCode,
         secret: mfaData.secret,
-        factorId: 'totp' // This would come from the actual response
+        factorId: mfaData.factorId
       });
     }
     setLoading(false);
