@@ -32,7 +32,7 @@ export default function Auth() {
   const [mfaSetup, setMfaSetup] = useState<{ qrCode: string; secret: string; factorId: string } | null>(null);
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [requiresMFAVerification, setRequiresMFAVerification] = useState(false);
-  const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; factorId: string } | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; factorId: string; email: string; password: string } | null>(null);
 
   const authForm = useForm<AuthForm>({
     resolver: zodResolver(authSchema),
@@ -78,7 +78,9 @@ export default function Auth() {
             if (!challengeError && challengeData) {
               setMfaChallenge({
                 challengeId: challengeData.id,
-                factorId: verifiedFactor.id
+                factorId: verifiedFactor.id,
+                email: result.email!,
+                password: result.password!
               });
               setRequiresMFAVerification(true);
             }
@@ -140,8 +142,16 @@ export default function Auth() {
       });
       
       if (!error) {
-        setRequiresMFAVerification(false);
-        navigate('/');
+        // After successful MFA verification, complete the login
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: mfaChallenge.email,
+          password: mfaChallenge.password,
+        });
+        
+        if (!loginError) {
+          setRequiresMFAVerification(false);
+          navigate('/');
+        }
       }
     } catch (error) {
       console.error('MFA verification error:', error);

@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[] }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[]; email?: string; password?: string }>;
   signOut: () => Promise<void>;
   setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
   verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
@@ -79,7 +79,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // First check if user has MFA configured by doing a temporary sign in
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -93,20 +94,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
-    // Check the Authentication Assurance Level (AAL)
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    console.log('Current AAL:', aal);
+    // Immediately check for MFA factors after successful password auth
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    console.log('MFA factors after login:', factors);
     
-    // If AAL is only level 1, check if user has MFA factors
-    if (aal && aal.currentLevel === 'aal1') {
-      const { data: factors } = await supabase.auth.mfa.listFactors();
-      const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
-        factors.totp.some((factor: any) => factor.status === 'verified');
+    const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
+      factors.totp.some((factor: any) => factor.status === 'verified');
+    
+    console.log('Has verified MFA:', hasVerifiedMFA);
+
+    if (hasVerifiedMFA) {
+      // Sign out immediately and require MFA challenge
+      await supabase.auth.signOut();
+      console.log('Signed out, requiring MFA');
       
-      if (hasVerifiedMFA) {
-        // Return special indicator that MFA challenge is needed
-        return { error: null, requiresMFA: true, factors: factors.totp };
-      }
+      // Return special indicator that MFA challenge is needed
+      return { 
+        error: null, 
+        requiresMFA: true, 
+        factors: factors.totp,
+        email, 
+        password 
+      };
     }
 
     return { error };
