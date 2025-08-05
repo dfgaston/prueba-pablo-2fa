@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,8 +63,17 @@ export default function Auth() {
     setLoading(true);
     const { error } = await signIn(data.email, data.password);
     if (!error) {
-      // After successful login, show MFA setup option
-      setShowMFASetup(true);
+      // Check if user already has MFA configured
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const hasVerifiedMFA = factors && (factors as any).totp?.some((factor: any) => factor.status === 'verified');
+      
+      if (hasVerifiedMFA) {
+        // User already has MFA, redirect to main page
+        navigate('/');
+      } else {
+        // User doesn't have MFA, show setup option
+        setShowMFASetup(true);
+      }
     }
     setLoading(false);
   };
