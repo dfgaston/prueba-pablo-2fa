@@ -7,12 +7,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  mfaInProgress: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[]; email?: string; password?: string; challengeId?: string; factorId?: string }>;
   signOut: () => Promise<void>;
   setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
   verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
   enableMFA: (token: string, factorId: string) => Promise<{ error: any }>;
+  setMfaInProgress: (inProgress: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaInProgress, setMfaInProgress] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -156,6 +159,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           console.log('✅ [AUTH] Sesión cerrada exitosamente');
         }
+        
+        // Wait a bit for signOut to complete properly
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         console.log('🔐 [AUTH] Retornando requiresMFA=true para mostrar pantalla MFA');
         
@@ -374,12 +380,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     session,
     loading,
+    mfaInProgress,
     signUp,
     signIn,
     signOut,
     setupMFA,
     verifyMFA,
     enableMFA,
+    setMfaInProgress,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

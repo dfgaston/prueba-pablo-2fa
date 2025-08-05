@@ -26,7 +26,7 @@ type AuthForm = z.infer<typeof authSchema>;
 type MFAForm = z.infer<typeof mfaSchema>;
 
 export default function Auth() {
-  const { user, signUp, signIn, setupMFA, enableMFA } = useAuth();
+  const { user, signUp, signIn, setupMFA, enableMFA, mfaInProgress, setMfaInProgress } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<{ qrCode: string; secret: string; factorId: string } | null>(null);
@@ -53,14 +53,15 @@ export default function Auth() {
     console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
     console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
     console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
+    console.log('🔐 [AUTH-COMPONENT] useEffect - mfaInProgress:', mfaInProgress);
     
-    if (user && !showMFASetup && !requiresMFAVerification) {
+    if (user && !showMFASetup && !requiresMFAVerification && !mfaInProgress) {
       console.log('🔐 [AUTH-COMPONENT] Usuario autenticado, navegando a /');
       navigate('/');
     } else {
-      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification);
+      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification, 'mfaInProgress:', mfaInProgress);
     }
-  }, [user, navigate, showMFASetup, requiresMFAVerification]);
+  }, [user, navigate, showMFASetup, requiresMFAVerification, mfaInProgress]);
 
   const handleSignUp = async (data: AuthForm) => {
     setLoading(true);
@@ -78,6 +79,9 @@ export default function Auth() {
     if (!result.error) {
       if (result.requiresMFA && result.challengeId && result.factorId) {
         console.log('🔐 [AUTH-COMPONENT] Se requiere MFA - usando challengeId existente:', result.challengeId);
+        
+        // Set MFA in progress to prevent navigation
+        setMfaInProgress(true);
         
         // Use the existing challenge instead of creating a new one
         setMfaChallenge({
@@ -159,6 +163,7 @@ export default function Auth() {
         
         if (!loginError) {
           setRequiresMFAVerification(false);
+          setMfaInProgress(false); // Clear MFA in progress
           navigate('/');
         }
       }
