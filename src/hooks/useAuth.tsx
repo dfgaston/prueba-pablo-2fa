@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 version #0001');
+    console.log('🔐 version #0002');
     console.log('🔐 [AUTH-V3.0] Iniciando proceso de login para email:', email);
     console.log('🔐 [AUTH-V3.0] Timestamp:', new Date().toISOString());
     

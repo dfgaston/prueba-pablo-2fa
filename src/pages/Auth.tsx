@@ -51,7 +51,7 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    console.log('🔐 version #0001');
+    console.log('🔐 version #0002');
     console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
     console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
     console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
@@ -74,7 +74,7 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
-    console.log('🔐 version #0001');
+    console.log('🔐 version #0002');
     console.log('🔐 [AUTH-COMPONENT-V3.0] handleSignIn iniciado');
     setLoading(true);
     const result = await signIn(data.email, data.password);
@@ -187,7 +187,7 @@ export default function Auth() {
     navigate('/');
   };
 
-  console.log('🔐 version #0001');
+  console.log('🔐 version #0002');
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - requiresMFAVerification:', requiresMFAVerification);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - showMFASetup:', showMFASetup);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - mfaInProgress:', mfaInProgress);
