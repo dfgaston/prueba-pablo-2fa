@@ -71,12 +71,14 @@ export default function Auth() {
   const handleSetupMFA = async () => {
     setLoading(true);
     const mfaData = await setupMFA();
+    console.log('MFA data received:', mfaData);
     if (mfaData) {
       setMfaSetup({
         qrCode: mfaData.qrCode,
         secret: mfaData.secret,
         factorId: mfaData.factorId
       });
+      console.log('MFA setup state set with factorId:', mfaData.factorId);
     }
     setLoading(false);
   };

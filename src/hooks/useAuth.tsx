@@ -114,6 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
+        console.error('MFA enrollment error:', error);
         toast({
           title: "Error al configurar 2FA",
           description: error.message,
@@ -122,6 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null;
       }
 
+      console.log('MFA enrollment data:', data);
       return {
         qrCode: data.totp.qr_code,
         secret: data.totp.secret,
@@ -167,12 +169,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const enableMFA = async (token: string, factorId: string) => {
+    console.log('enableMFA called with factorId:', factorId, 'token:', token);
+    
     // Create a challenge first
     const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
       factorId
     });
 
     if (challengeError) {
+      console.error('MFA challenge error:', challengeError);
       toast({
         title: "Error al habilitar 2FA",
         description: challengeError.message,
@@ -180,6 +185,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       return { error: challengeError };
     }
+
+    console.log('MFA challenge data:', challengeData);
 
     // Then verify with the challenge
     const { error } = await supabase.auth.mfa.verify({
@@ -189,6 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (error) {
+      console.error('MFA verify error:', error);
       toast({
         title: "Error al habilitar 2FA",
         description: error.message,
