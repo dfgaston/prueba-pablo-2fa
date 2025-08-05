@@ -108,6 +108,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const setupMFA = async () => {
     try {
+      // First, check if user already has MFA factors
+      const { data: existingFactors, error: listError } = await supabase.auth.mfa.listFactors();
+      
+      if (listError) {
+        console.error('Error listing MFA factors:', listError);
+        toast({
+          title: "Error al verificar 2FA",
+          description: listError.message,
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      console.log('Existing MFA factors:', existingFactors);
+
+      // Check for TOTP factors specifically (using any to avoid type issues)
+      const factors = existingFactors as any;
+      if (factors && factors.totp && factors.totp.length > 0) {
+        // Find an unverified TOTP factor
+        const existingTotpFactor = factors.totp.find((factor: any) => 
+          factor.status === 'unverified'
+        );
+        
+        if (existingTotpFactor) {
+          console.log('Found existing unverified TOTP factor:', existingTotpFactor);
+          // Check if the factor has the TOTP data needed
+          if (existingTotpFactor.totp && existingTotpFactor.totp.qr_code) {
+            return {
+              qrCode: existingTotpFactor.totp.qr_code,
+              secret: existingTotpFactor.totp.secret,
+              factorId: existingTotpFactor.id
+            };
+          }
+        }
+
+        // If user has a verified factor, they don't need to set up again
+        const verifiedFactor = factors.totp.find((factor: any) => 
+          factor.status === 'verified'
+        );
+        if (verifiedFactor) {
+          toast({
+            title: "2FA ya configurado",
+            description: "Ya tienes la autenticación de dos factores habilitada",
+          });
+          return null;
+        }
+      }
+
+      // Only create new factor if none exists or existing one doesn't have QR data
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         friendlyName: 'Autenticación de dos factores'
@@ -115,6 +164,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error('MFA enrollment error:', error);
+        // If error is about existing factor name, try with different name
+        if (error.message.includes('friendly name')) {
+          const { data: retryData, error: retryError } = await supabase.auth.mfa.enroll({
+            factorType: 'totp',
+            friendlyName: `Autenticación de dos factores ${Date.now()}`
+          });
+          
+          if (retryError) {
+            toast({
+              title: "Error al configurar 2FA",
+              description: retryError.message,
+              variant: "destructive"
+            });
+            return null;
+          }
+          
+          console.log('MFA enrollment retry data:', retryData);
+          return {
+            qrCode: retryData.totp.qr_code,
+            secret: retryData.totp.secret,
+            factorId: retryData.id
+          };
+        }
+        
         toast({
           title: "Error al configurar 2FA",
           description: error.message,
