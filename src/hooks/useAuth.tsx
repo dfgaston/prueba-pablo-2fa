@@ -79,12 +79,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 [AUTH] Iniciando proceso de login para email:', email);
+    console.log('🔐 [AUTH] Timestamp:', new Date().toISOString());
+    
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('🔐 [AUTH] Resultado de signInWithPassword:');
+    console.log('🔐 [AUTH] - Data:', signInData);
+    console.log('🔐 [AUTH] - Error:', error);
+    console.log('🔐 [AUTH] - Session AAL:', (signInData?.session as any)?.aal);
+    console.log('🔐 [AUTH] - User ID:', signInData?.user?.id);
+
     if (error) {
+      console.log('❌ [AUTH] Error en signInWithPassword:', error.message);
       toast({
         title: "Error al iniciar sesión",
         description: error.message,
@@ -93,33 +103,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
+    console.log('✅ [AUTH] SignInWithPassword exitoso, verificando factores MFA...');
+
     // Check for MFA factors after successful password auth
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    console.log('MFA factors after login:', factors);
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+    console.log('🔐 [AUTH] Resultado de listFactors:');
+    console.log('🔐 [AUTH] - Factors:', factors);
+    console.log('🔐 [AUTH] - Error:', factorsError);
+    
+    if (factorsError) {
+      console.log('❌ [AUTH] Error al obtener factores MFA:', factorsError);
+    }
     
     const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
       factors.totp.some((factor: any) => factor.status === 'verified');
     
-    console.log('Has verified MFA:', hasVerifiedMFA);
+    console.log('🔐 [AUTH] ¿Tiene MFA verificado?:', hasVerifiedMFA);
+    console.log('🔐 [AUTH] Factores TOTP encontrados:', factors?.totp?.length || 0);
 
     if (hasVerifiedMFA) {
+      console.log('🔐 [AUTH] Usuario tiene MFA habilitado, procediendo con flujo MFA...');
+      
       // Try to create MFA challenge first before signing out
       const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
+      console.log('🔐 [AUTH] Factor verificado encontrado:', verifiedFactor);
       
       try {
+        console.log('🔐 [AUTH] Creando challenge MFA para factor:', verifiedFactor.id);
+        
         const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
           factorId: verifiedFactor.id
         });
 
+        console.log('🔐 [AUTH] Resultado de MFA challenge:');
+        console.log('🔐 [AUTH] - Challenge Data:', challengeData);
+        console.log('🔐 [AUTH] - Challenge Error:', challengeError);
+
         if (challengeError) {
-          console.error('Failed to create MFA challenge:', challengeError);
-          // If we can't create a challenge, don't require MFA
+          console.error('❌ [AUTH] Error al crear challenge MFA:', challengeError);
+          console.log('🔐 [AUTH] Permitiendo login sin MFA debido a error en challenge');
           return { error: null };
         }
 
+        console.log('✅ [AUTH] Challenge MFA creado exitosamente, cerrando sesión...');
+        
         // Only sign out if challenge was created successfully
-        await supabase.auth.signOut();
-        console.log('Signed out, requiring MFA');
+        const { error: signOutError } = await supabase.auth.signOut();
+        console.log('🔐 [AUTH] Resultado de signOut:', signOutError);
+        
+        if (signOutError) {
+          console.error('❌ [AUTH] Error al cerrar sesión:', signOutError);
+        } else {
+          console.log('✅ [AUTH] Sesión cerrada exitosamente');
+        }
+        
+        console.log('🔐 [AUTH] Retornando requiresMFA=true para mostrar pantalla MFA');
         
         // Return special indicator that MFA challenge is needed
         return { 
@@ -130,12 +168,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           password 
         };
       } catch (error) {
-        console.error('Error in MFA challenge creation:', error);
-        // If anything fails, don't require MFA
+        console.error('❌ [AUTH] Excepción en creación de challenge MFA:', error);
+        console.log('🔐 [AUTH] Permitiendo login sin MFA debido a excepción');
         return { error: null };
       }
     }
 
+    console.log('✅ [AUTH] Login completado sin MFA (usuario no tiene MFA configurado)');
     return { error: null };
   };
 
