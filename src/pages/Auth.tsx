@@ -70,7 +70,7 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
-    console.log('🔐 [AUTH-COMPONENT] handleSignIn iniciado');
+    console.log('🔐 [AUTH-COMPONENT-V3.0] handleSignIn iniciado');
     setLoading(true);
     const result = await signIn(data.email, data.password);
     

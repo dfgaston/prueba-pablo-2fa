@@ -82,8 +82,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 [AUTH] Iniciando proceso de login para email:', email);
-    console.log('🔐 [AUTH] Timestamp:', new Date().toISOString());
+    console.log('🔐 [AUTH-V3.0] Iniciando proceso de login para email:', email);
+    console.log('🔐 [AUTH-V3.0] Timestamp:', new Date().toISOString());
     
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,45 +125,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log('🔐 [AUTH] Factores TOTP encontrados:', factors?.totp?.length || 0);
 
     if (hasVerifiedMFA) {
-      console.log('🔐 [AUTH] Usuario tiene MFA habilitado, procediendo con flujo MFA...');
+      console.log('🔐 [AUTH-V3.0] Usuario tiene MFA habilitado - NUEVA ESTRATEGIA: NO cerrar sesión');
+      
+      // NEW STRATEGY: Don't sign out, just set MFA in progress
+      setMfaInProgress(true);
       
       // Try to create MFA challenge first before signing out
       const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
-      console.log('🔐 [AUTH] Factor verificado encontrado:', verifiedFactor);
+      console.log('🔐 [AUTH-V3.0] Factor verificado encontrado:', verifiedFactor);
       
       try {
-        console.log('🔐 [AUTH] Creando challenge MFA para factor:', verifiedFactor.id);
+        console.log('🔐 [AUTH-V3.0] Creando challenge MFA para factor:', verifiedFactor.id);
         
         const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
           factorId: verifiedFactor.id
         });
 
-        console.log('🔐 [AUTH] Resultado de MFA challenge:');
-        console.log('🔐 [AUTH] - Challenge Data:', challengeData);
-        console.log('🔐 [AUTH] - Challenge Error:', challengeError);
+        console.log('🔐 [AUTH-V3.0] Resultado de MFA challenge:');
+        console.log('🔐 [AUTH-V3.0] - Challenge Data:', challengeData);
+        console.log('🔐 [AUTH-V3.0] - Challenge Error:', challengeError);
 
         if (challengeError) {
-          console.error('❌ [AUTH] Error al crear challenge MFA:', challengeError);
-          console.log('🔐 [AUTH] Permitiendo login sin MFA debido a error en challenge');
+          console.error('❌ [AUTH-V3.0] Error al crear challenge MFA:', challengeError);
+          console.log('🔐 [AUTH-V3.0] Permitiendo login sin MFA debido a error en challenge');
+          setMfaInProgress(false);
           return { error: null };
         }
 
-        console.log('✅ [AUTH] Challenge MFA creado exitosamente, cerrando sesión...');
-        
-        // Only sign out if challenge was created successfully
-        const { error: signOutError } = await supabase.auth.signOut();
-        console.log('🔐 [AUTH] Resultado de signOut:', signOutError);
-        
-        if (signOutError) {
-          console.error('❌ [AUTH] Error al cerrar sesión:', signOutError);
-        } else {
-          console.log('✅ [AUTH] Sesión cerrada exitosamente');
-        }
-        
-        // Wait a bit for signOut to complete properly
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        console.log('🔐 [AUTH] Retornando requiresMFA=true para mostrar pantalla MFA');
+        console.log('✅ [AUTH-V3.0] Challenge MFA creado - NO cerrando sesión, manteniendo usuario autenticado');
+        console.log('🔐 [AUTH-V3.0] Retornando requiresMFA=true para mostrar pantalla MFA');
         
         // Return special indicator that MFA challenge is needed
         return { 
@@ -176,8 +166,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           factorId: verifiedFactor.id
         };
       } catch (error) {
-        console.error('❌ [AUTH] Excepción en creación de challenge MFA:', error);
-        console.log('🔐 [AUTH] Permitiendo login sin MFA debido a excepción');
+        console.error('❌ [AUTH-V3.0] Excepción en creación de challenge MFA:', error);
+        console.log('🔐 [AUTH-V3.0] Permitiendo login sin MFA debido a excepción');
+        setMfaInProgress(false);
         return { error: null };
       }
     }
