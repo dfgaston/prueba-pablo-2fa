@@ -138,6 +138,186 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      "Valores en Cartera": {
+        Row: {
+          ba_id: number | null
+          bn_id: number | null
+          bn_name: string | null
+          bra_id: number | null
+          bra_id_PortFolio: number | null
+          chp_AccountNumber: string | null
+          chp_BankBranch: number | null
+          chp_BankBranchDescription: string | null
+          chp_BranchCurrencyExchange: number | null
+          chp_DocumentDescription: string | null
+          chp_documentNumber: string | null
+          chp_EmissionDate: string | null
+          chp_guid: string | null
+          chp_id: number
+          chp_image: string | null
+          chp_isAvailable: boolean | null
+          chp_isCancelled: boolean | null
+          chp_isDocument: boolean | null
+          chp_isEditing: string | null
+          chp_isEditingCD: string | null
+          chp_isElectronic: boolean | null
+          chp_isInProcess: boolean | null
+          chp_isInProcess_Order: string | null
+          chp_isNegociated: boolean | null
+          chp_isOwn: boolean | null
+          chp_IsPayed: boolean | null
+          chp_isRejected: boolean | null
+          chp_isToOrder: boolean | null
+          chp_Note: string | null
+          chp_number: string | null
+          chp_originalTotal: string | null
+          chp_PayDate: string | null
+          chp_QtyEndosos: string | null
+          chp_taxNumber1: number | null
+          chp_taxNumber2: string | null
+          chp_taxNumber3: string | null
+          chp_Titular: string | null
+          chp_total: number | null
+          comp_id: number | null
+          country_id: number | null
+          ct_date: string | null
+          ct_docNumber: number | null
+          ct_pointOfSale: number | null
+          ct_total: number | null
+          ct_transaction: number | null
+          curr_id: number | null
+          cust_id: number | null
+          cust_name: string | null
+          sd_desc: string | null
+          ult_Fecha_actualizacion: string | null
+        }
+        Insert: {
+          ba_id?: number | null
+          bn_id?: number | null
+          bn_name?: string | null
+          bra_id?: number | null
+          bra_id_PortFolio?: number | null
+          chp_AccountNumber?: string | null
+          chp_BankBranch?: number | null
+          chp_BankBranchDescription?: string | null
+          chp_BranchCurrencyExchange?: number | null
+          chp_DocumentDescription?: string | null
+          chp_documentNumber?: string | null
+          chp_EmissionDate?: string | null
+          chp_guid?: string | null
+          chp_id: number
+          chp_image?: string | null
+          chp_isAvailable?: boolean | null
+          chp_isCancelled?: boolean | null
+          chp_isDocument?: boolean | null
+          chp_isEditing?: string | null
+          chp_isEditingCD?: string | null
+          chp_isElectronic?: boolean | null
+          chp_isInProcess?: boolean | null
+          chp_isInProcess_Order?: string | null
+          chp_isNegociated?: boolean | null
+          chp_isOwn?: boolean | null
+          chp_IsPayed?: boolean | null
+          chp_isRejected?: boolean | null
+          chp_isToOrder?: boolean | null
+          chp_Note?: string | null
+          chp_number?: string | null
+          chp_originalTotal?: string | null
+          chp_PayDate?: string | null
+          chp_QtyEndosos?: string | null
+          chp_taxNumber1?: number | null
+          chp_taxNumber2?: string | null
+          chp_taxNumber3?: string | null
+          chp_Titular?: string | null
+          chp_total?: number | null
+          comp_id?: number | null
+          country_id?: number | null
+          ct_date?: string | null
+          ct_docNumber?: number | null
+          ct_pointOfSale?: number | null
+          ct_total?: number | null
+          ct_transaction?: number | null
+          curr_id?: number | null
+          cust_id?: number | null
+          cust_name?: string | null
+          sd_desc?: string | null
+          ult_Fecha_actualizacion?: string | null
+        }
+        Update: {
+          ba_id?: number | null
+          bn_id?: number | null
+          bn_name?: string | null
+          bra_id?: number | null
+          bra_id_PortFolio?: number | null
+          chp_AccountNumber?: string | null
+          chp_BankBranch?: number | null
+          chp_BankBranchDescription?: string | null
+          chp_BranchCurrencyExchange?: number | null
+          chp_DocumentDescription?: string | null
+          chp_documentNumber?: string | null
+          chp_EmissionDate?: string | null
+          chp_guid?: string | null
+          chp_id?: number
+          chp_image?: string | null
+          chp_isAvailable?: boolean | null
+          chp_isCancelled?: boolean | null
+          chp_isDocument?: boolean | null
+          chp_isEditing?: string | null
+          chp_isEditingCD?: string | null
+          chp_isElectronic?: boolean | null
+          chp_isInProcess?: boolean | null
+          chp_isInProcess_Order?: string | null
+          chp_isNegociated?: boolean | null
+          chp_isOwn?: boolean | null
+          chp_IsPayed?: boolean | null
+          chp_isRejected?: boolean | null
+          chp_isToOrder?: boolean | null
+          chp_Note?: string | null
+          chp_number?: string | null
+          chp_originalTotal?: string | null
+          chp_PayDate?: string | null
+          chp_QtyEndosos?: string | null
+          chp_taxNumber1?: number | null
+          chp_taxNumber2?: string | null
+          chp_taxNumber3?: string | null
+          chp_Titular?: string | null
+          chp_total?: number | null
+          comp_id?: number | null
+          country_id?: number | null
+          ct_date?: string | null
+          ct_docNumber?: number | null
+          ct_pointOfSale?: number | null
+          ct_total?: number | null
+          ct_transaction?: number | null
+          curr_id?: number | null
+          cust_id?: number | null
+          cust_name?: string | null
+          sd_desc?: string | null
+          ult_Fecha_actualizacion?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -147,9 +327,20 @@ export type Database = {
         Args: { p_lovable_project_id: string; p_user_id: string }
         Returns: boolean
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -276,6 +467,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user", "viewer"],
+    },
   },
 } as const
