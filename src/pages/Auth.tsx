@@ -78,9 +78,10 @@ export default function Auth() {
     
     if (!result.error) {
       if (result.requiresMFA && result.challengeId && result.factorId) {
-        console.log('🔐 [AUTH-COMPONENT] Se requiere MFA - usando challengeId existente:', result.challengeId);
+        console.log('🔐 [AUTH-COMPONENT-V3.0] Se requiere MFA - challengeId:', result.challengeId);
         
-        // Set MFA in progress to prevent navigation
+        // Set MFA in progress FIRST to prevent navigation
+        console.log('🔐 [AUTH-COMPONENT-V3.0] Configurando estados MFA...');
         setMfaInProgress(true);
         
         // Use the existing challenge instead of creating a new one
@@ -91,7 +92,9 @@ export default function Auth() {
           password: result.password!
         });
         setRequiresMFAVerification(true);
-        console.log('🔐 [AUTH-COMPONENT] Estados configurados - requiresMFAVerification:', true);
+        console.log('🔐 [AUTH-COMPONENT-V3.0] Estados configurados:');
+        console.log('🔐 [AUTH-COMPONENT-V3.0] - mfaInProgress: true');
+        console.log('🔐 [AUTH-COMPONENT-V3.0] - requiresMFAVerification: true');
       } else {
         console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
         
@@ -178,7 +181,12 @@ export default function Auth() {
     navigate('/');
   };
 
+  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - requiresMFAVerification:', requiresMFAVerification);
+  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - showMFASetup:', showMFASetup);
+  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - mfaInProgress:', mfaInProgress);
+  
   if (requiresMFAVerification) {
+    console.log('🔐 [AUTH-COMPONENT-V3.0] RENDERING MFA VERIFICATION SCREEN');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
