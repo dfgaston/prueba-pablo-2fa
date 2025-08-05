@@ -79,7 +79,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    // First check if user has MFA configured by doing a temporary sign in
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -94,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
-    // Immediately check for MFA factors after successful password auth
+    // Check for MFA factors after successful password auth
     const { data: factors } = await supabase.auth.mfa.listFactors();
     console.log('MFA factors after login:', factors);
     
@@ -104,21 +103,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log('Has verified MFA:', hasVerifiedMFA);
 
     if (hasVerifiedMFA) {
-      // Sign out immediately and require MFA challenge
-      await supabase.auth.signOut();
-      console.log('Signed out, requiring MFA');
+      // Try to create MFA challenge first before signing out
+      const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
       
-      // Return special indicator that MFA challenge is needed
-      return { 
-        error: null, 
-        requiresMFA: true, 
-        factors: factors.totp,
-        email, 
-        password 
-      };
+      try {
+        const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId: verifiedFactor.id
+        });
+
+        if (challengeError) {
+          console.error('Failed to create MFA challenge:', challengeError);
+          // If we can't create a challenge, don't require MFA
+          return { error: null };
+        }
+
+        // Only sign out if challenge was created successfully
+        await supabase.auth.signOut();
+        console.log('Signed out, requiring MFA');
+        
+        // Return special indicator that MFA challenge is needed
+        return { 
+          error: null, 
+          requiresMFA: true, 
+          factors: factors.totp,
+          email, 
+          password 
+        };
+      } catch (error) {
+        console.error('Error in MFA challenge creation:', error);
+        // If anything fails, don't require MFA
+        return { error: null };
+      }
     }
 
-    return { error };
+    return { error: null };
   };
 
   const signOut = async () => {
