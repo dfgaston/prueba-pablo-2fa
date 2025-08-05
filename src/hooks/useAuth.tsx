@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[]; email?: string; password?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[]; email?: string; password?: string; challengeId?: string; factorId?: string }>;
   signOut: () => Promise<void>;
   setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
   verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
@@ -165,7 +165,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           requiresMFA: true, 
           factors: factors.totp,
           email, 
-          password 
+          password,
+          challengeId: challengeData.id,
+          factorId: verifiedFactor.id
         };
       } catch (error) {
         console.error('❌ [AUTH] Excepción en creación de challenge MFA:', error);

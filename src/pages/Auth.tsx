@@ -76,41 +76,18 @@ export default function Auth() {
     console.log('🔐 [AUTH-COMPONENT] Resultado de signIn:', result);
     
     if (!result.error) {
-      if (result.requiresMFA && result.factors) {
-        console.log('🔐 [AUTH-COMPONENT] Se requiere MFA, factors:', result.factors);
+      if (result.requiresMFA && result.challengeId && result.factorId) {
+        console.log('🔐 [AUTH-COMPONENT] Se requiere MFA - usando challengeId existente:', result.challengeId);
         
-        // User has MFA enabled, create challenge
-        const verifiedFactor = result.factors.find((factor: any) => factor.status === 'verified');
-        console.log('🔐 [AUTH-COMPONENT] Factor verificado encontrado:', verifiedFactor);
-        
-        if (verifiedFactor) {
-          try {
-            console.log('🔐 [AUTH-COMPONENT] Creando challenge MFA desde componente...');
-            const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-              factorId: verifiedFactor.id
-            });
-            
-            console.log('🔐 [AUTH-COMPONENT] Resultado challenge desde componente:');
-            console.log('🔐 [AUTH-COMPONENT] - Challenge Data:', challengeData);
-            console.log('🔐 [AUTH-COMPONENT] - Challenge Error:', challengeError);
-            
-            if (!challengeError && challengeData) {
-              console.log('🔐 [AUTH-COMPONENT] Configurando estado MFA...');
-              setMfaChallenge({
-                challengeId: challengeData.id,
-                factorId: verifiedFactor.id,
-                email: result.email!,
-                password: result.password!
-              });
-              setRequiresMFAVerification(true);
-              console.log('🔐 [AUTH-COMPONENT] Estados configurados - requiresMFAVerification:', true);
-            } else {
-              console.log('🔐 [AUTH-COMPONENT] Error en challenge, no se requiere MFA');
-            }
-          } catch (challengeError) {
-            console.error('🔐 [AUTH-COMPONENT] Excepción en MFA Challenge:', challengeError);
-          }
-        }
+        // Use the existing challenge instead of creating a new one
+        setMfaChallenge({
+          challengeId: result.challengeId,
+          factorId: result.factorId,
+          email: result.email!,
+          password: result.password!
+        });
+        setRequiresMFAVerification(true);
+        console.log('🔐 [AUTH-COMPONENT] Estados configurados - requiresMFAVerification:', true);
       } else {
         console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
         
