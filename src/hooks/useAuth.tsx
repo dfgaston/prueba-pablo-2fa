@@ -3,18 +3,34 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+type MFAState = 
+  | { type: 'none' }
+  | { 
+      type: 'verification'; 
+      challengeId: string; 
+      factorId: string; 
+      email: string; 
+      password: string; 
+    }
+  | { 
+      type: 'setup'; 
+      qrCode?: string; 
+      secret?: string; 
+      factorId?: string; 
+    };
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  mfaInProgress: boolean;
+  mfaState: MFAState;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any; requiresMFA?: boolean; factors?: any[]; email?: string; password?: string; challengeId?: string; factorId?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   setupMFA: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>;
-  verifyMFA: (token: string, factorId: string) => Promise<{ error: any }>;
+  verifyMFA: (token: string, challengeId?: string) => Promise<{ error: any }>;
   enableMFA: (token: string, factorId: string) => Promise<{ error: any }>;
-  setMfaInProgress: (inProgress: boolean) => void;
+  setMfaState: (state: MFAState) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mfaInProgress, setMfaInProgress] = useState(false);
+  const [mfaState, setMfaState] = useState<MFAState>({ type: 'none' });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,23 +98,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 version #0004');
-    console.log('🔐 [AUTH-V3.0] Iniciando proceso de login para email:', email);
-    console.log('🔐 [AUTH-V3.0] Timestamp:', new Date().toISOString());
+    console.log('🔐 [AUTH-V5.0] Iniciando proceso de login para email:', email);
     
     const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    console.log('🔐 [AUTH] Resultado de signInWithPassword:');
-    console.log('🔐 [AUTH] - Data:', signInData);
-    console.log('🔐 [AUTH] - Error:', error);
-    console.log('🔐 [AUTH] - Session AAL:', (signInData?.session as any)?.aal);
-    console.log('🔐 [AUTH] - User ID:', signInData?.user?.id);
+    console.log('🔐 [AUTH-V5.0] Resultado de signInWithPassword:', { 
+      data: signInData, 
+      error,
+      sessionAAL: (signInData?.session as any)?.aal 
+    });
 
     if (error) {
-      console.log('❌ [AUTH] Error en signInWithPassword:', error.message);
+      console.log('❌ [AUTH-V5.0] Error en signInWithPassword:', error.message);
       toast({
         title: "Error al iniciar sesión",
         description: error.message,
@@ -107,74 +121,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
-    console.log('✅ [AUTH] SignInWithPassword exitoso, verificando factores MFA...');
+    console.log('✅ [AUTH-V5.0] SignInWithPassword exitoso, verificando factores MFA...');
 
     // Check for MFA factors after successful password auth
     const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
-    console.log('🔐 [AUTH] Resultado de listFactors:');
-    console.log('🔐 [AUTH] - Factors:', factors);
-    console.log('🔐 [AUTH] - Error:', factorsError);
+    console.log('🔐 [AUTH-V5.0] Factores MFA obtenidos:', { factors, error: factorsError });
     
     if (factorsError) {
-      console.log('❌ [AUTH] Error al obtener factores MFA:', factorsError);
+      console.log('❌ [AUTH-V5.0] Error al obtener factores MFA:', factorsError);
+      return { error: null };
     }
     
     const hasVerifiedMFA = factors && factors.totp && factors.totp.length > 0 && 
       factors.totp.some((factor: any) => factor.status === 'verified');
     
-    console.log('🔐 [AUTH] ¿Tiene MFA verificado?:', hasVerifiedMFA);
-    console.log('🔐 [AUTH] Factores TOTP encontrados:', factors?.totp?.length || 0);
+    console.log('🔐 [AUTH-V5.0] ¿Tiene MFA verificado?:', hasVerifiedMFA);
 
     if (hasVerifiedMFA) {
-      console.log('🔐 [AUTH-V3.0] Usuario tiene MFA habilitado - NUEVA ESTRATEGIA: NO cerrar sesión');
+      console.log('🔐 [AUTH-V5.0] Usuario tiene MFA habilitado - creando challenge');
       
-      // NEW STRATEGY: Don't sign out, just set MFA in progress
-      setMfaInProgress(true);
-      
-      // Try to create MFA challenge first before signing out
       const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
-      console.log('🔐 [AUTH-V3.0] Factor verificado encontrado:', verifiedFactor);
+      console.log('🔐 [AUTH-V5.0] Factor verificado encontrado:', verifiedFactor);
       
       try {
-        console.log('🔐 [AUTH-V3.0] Creando challenge MFA para factor:', verifiedFactor.id);
-        
         const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
           factorId: verifiedFactor.id
         });
 
-        console.log('🔐 [AUTH-V3.0] Resultado de MFA challenge:');
-        console.log('🔐 [AUTH-V3.0] - Challenge Data:', challengeData);
-        console.log('🔐 [AUTH-V3.0] - Challenge Error:', challengeError);
+        console.log('🔐 [AUTH-V5.0] Resultado de MFA challenge:', { challengeData, challengeError });
 
         if (challengeError) {
-          console.error('❌ [AUTH-V3.0] Error al crear challenge MFA:', challengeError);
-          console.log('🔐 [AUTH-V3.0] Permitiendo login sin MFA debido a error en challenge');
-          setMfaInProgress(false);
-          return { error: null };
+          console.error('❌ [AUTH-V5.0] Error al crear challenge MFA:', challengeError);
+          toast({
+            title: "Error MFA",
+            description: "No se pudo crear el desafío de autenticación",
+            variant: "destructive"
+          });
+          return { error: challengeError };
         }
 
-        console.log('✅ [AUTH-V3.0] Challenge MFA creado - NO cerrando sesión, manteniendo usuario autenticado');
-        console.log('🔐 [AUTH-V3.0] Retornando requiresMFA=true para mostrar pantalla MFA');
+        console.log('✅ [AUTH-V5.0] Challenge MFA creado exitosamente - configurando estado de verificación');
         
-        // Return special indicator that MFA challenge is needed
-        return { 
-          error: null, 
-          requiresMFA: true, 
-          factors: factors.totp,
-          email, 
-          password,
+        // Set MFA state to verification directly in the hook
+        setMfaState({
+          type: 'verification',
           challengeId: challengeData.id,
-          factorId: verifiedFactor.id
-        };
-      } catch (error) {
-        console.error('❌ [AUTH-V3.0] Excepción en creación de challenge MFA:', error);
-        console.log('🔐 [AUTH-V3.0] Permitiendo login sin MFA debido a excepción');
-        setMfaInProgress(false);
+          factorId: verifiedFactor.id,
+          email,
+          password
+        });
+        
         return { error: null };
+      } catch (error) {
+        console.error('❌ [AUTH-V5.0] Excepción en creación de challenge MFA:', error);
+        toast({
+          title: "Error MFA",
+          description: "Error inesperado en autenticación de dos factores",
+          variant: "destructive"
+        });
+        return { error: error as any };
+      }
+    } else {
+      console.log('🔐 [AUTH-V5.0] Usuario sin MFA verificado - verificando si mostrar setup');
+      
+      // Check if user has any MFA factors at all
+      const hasAnyMFA = factors && factors.totp && factors.totp.length > 0;
+      
+      if (!hasAnyMFA) {
+        console.log('🔐 [AUTH-V5.0] Usuario sin MFA - configurando estado de setup');
+        setMfaState({ type: 'setup' });
       }
     }
 
-    console.log('✅ [AUTH] Login completado sin MFA (usuario no tiene MFA configurado)');
+    console.log('✅ [AUTH-V5.0] Login completado');
     return { error: null };
   };
 
@@ -291,33 +310,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const verifyMFA = async (token: string, factorId: string) => {
-    // First create a challenge
-    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-      factorId
-    });
-
-    if (challengeError) {
-      toast({
-        title: "Error al crear desafío 2FA",
-        description: challengeError.message,
-        variant: "destructive"
-      });
-      return { error: challengeError };
+  const verifyMFA = async (token: string, challengeId?: string) => {
+    console.log('🔐 [AUTH-V5.0] verifyMFA llamado con token y challengeId:', { token: '***', challengeId });
+    
+    if (mfaState.type !== 'verification') {
+      console.error('❌ [AUTH-V5.0] verifyMFA llamado pero no hay estado de verificación activo');
+      return { error: new Error('No hay verificación MFA activa') };
     }
 
-    // Then verify the challenge
+    const { challengeId: stateChallenge, factorId } = mfaState;
+    const actualChallengeId = challengeId || stateChallenge;
+    
+    console.log('🔐 [AUTH-V5.0] Verificando MFA con:', { factorId, challengeId: actualChallengeId });
+
+    // Verify the challenge with the stored challengeId and factorId
     const { error } = await supabase.auth.mfa.verify({
       factorId,
-      challengeId: challengeData.id,
+      challengeId: actualChallengeId,
       code: token
     });
 
+    console.log('🔐 [AUTH-V5.0] Resultado de MFA verify:', { error });
+
     if (error) {
+      console.error('❌ [AUTH-V5.0] Error al verificar MFA:', error);
       toast({
         title: "Error al verificar 2FA",
         description: error.message,
         variant: "destructive"
+      });
+    } else {
+      console.log('✅ [AUTH-V5.0] MFA verificado exitosamente - limpiando estado');
+      setMfaState({ type: 'none' });
+      toast({
+        title: "2FA verificado",
+        description: "Autenticación completada exitosamente",
       });
     }
 
@@ -372,14 +399,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     session,
     loading,
-    mfaInProgress,
+    mfaState,
     signUp,
     signIn,
     signOut,
     setupMFA,
     verifyMFA,
     enableMFA,
-    setMfaInProgress,
+    setMfaState,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

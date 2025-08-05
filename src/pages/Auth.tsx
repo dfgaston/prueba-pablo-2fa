@@ -42,10 +42,9 @@ type MFAState =
     };
 
 export default function Auth() {
-  const { user, signUp, signIn, setupMFA, enableMFA, setMfaInProgress } = useAuth();
+  const { user, mfaState, signUp, signIn, setupMFA, enableMFA, verifyMFA, setMfaState } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [mfaState, setMfaState] = useState<MFAState>({ type: 'none' });
 
   const authForm = useForm<AuthForm>({
     resolver: zodResolver(authSchema),
@@ -63,16 +62,12 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    console.log('🔐 version #0004');
-    console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
-    console.log('🔐 [AUTH-COMPONENT] useEffect - mfaState:', mfaState);
+    console.log('🔐 [AUTH-COMPONENT-V5.0] useEffect - user:', !!user, 'mfaState:', mfaState);
     
-    // Don't navigate if we have any MFA flow active
+    // Only navigate to home if user is authenticated AND no MFA flow is active
     if (user && mfaState.type === 'none') {
-      console.log('🔐 [AUTH-COMPONENT] Usuario autenticado y sin MFA pendiente, navegando a /');
+      console.log('🔐 [AUTH-COMPONENT-V5.0] Usuario autenticado sin MFA pendiente - navegando a /');
       navigate('/');
-    } else {
-      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'mfaState:', mfaState.type);
     }
   }, [user, navigate, mfaState]);
 
@@ -83,58 +78,26 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
-    console.log('🔐 version #0004');
-    console.log('🔐 [AUTH-COMPONENT-V4.0] handleSignIn iniciado');
+    console.log('🔐 [AUTH-COMPONENT-V5.0] handleSignIn iniciado');
     setLoading(true);
+    
     const result = await signIn(data.email, data.password);
+    console.log('🔐 [AUTH-COMPONENT-V5.0] Resultado de signIn:', result);
     
-    console.log('🔐 [AUTH-COMPONENT] Resultado de signIn:', result);
-    
-    if (!result.error) {
-      if (result.requiresMFA && result.challengeId && result.factorId) {
-        console.log('🔐 [AUTH-COMPONENT-V4.0] Se requiere MFA - challengeId:', result.challengeId);
-        
-        // Set MFA state to verification with all needed data
-        setMfaState({
-          type: 'verification',
-          challengeId: result.challengeId,
-          factorId: result.factorId,
-          email: result.email!,
-          password: result.password!
-        });
-        
-        setMfaInProgress(true);
-        console.log('🔐 [AUTH-COMPONENT-V4.0] Estado MFA configurado para verificación');
-        setLoading(false);
-        return;
-      } else {
-        console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
-        
-        // No MFA required or user doesn't have MFA, check if we should show setup
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const hasAnyMFA = factors && factors.totp && factors.totp.length > 0;
-        
-        console.log('🔐 [AUTH-COMPONENT] hasAnyMFA:', hasAnyMFA);
-        
-        if (!hasAnyMFA) {
-          console.log('🔐 [AUTH-COMPONENT] Mostrando setup MFA');
-          setMfaState({ type: 'setup' });
-        } else {
-          console.log('🔐 [AUTH-COMPONENT] Navegando a / directamente');
-          navigate('/');
-        }
-      }
-    } else {
-      console.log('🔐 [AUTH-COMPONENT] Error en signIn:', result.error);
+    // The signIn method now handles MFA state internally
+    // We just need to handle errors here
+    if (result.error) {
+      console.log('❌ [AUTH-COMPONENT-V5.0] Error en signIn:', result.error);
     }
+    
     setLoading(false);
-    console.log('🔐 [AUTH-COMPONENT] handleSignIn completado');
+    console.log('🔐 [AUTH-COMPONENT-V5.0] handleSignIn completado');
   };
 
   const handleSetupMFA = async () => {
     setLoading(true);
     const mfaData = await setupMFA();
-    console.log('MFA data received:', mfaData);
+    console.log('🔐 [AUTH-COMPONENT-V5.0] MFA data received:', mfaData);
     if (mfaData) {
       setMfaState({
         type: 'setup',
@@ -142,7 +105,7 @@ export default function Auth() {
         secret: mfaData.secret,
         factorId: mfaData.factorId
       });
-      console.log('MFA setup state set with factorId:', mfaData.factorId);
+      console.log('🔐 [AUTH-COMPONENT-V5.0] MFA setup state set with factorId:', mfaData.factorId);
     }
     setLoading(false);
   };
@@ -154,7 +117,6 @@ export default function Auth() {
     const { error } = await enableMFA(data.code, mfaState.factorId);
     if (!error) {
       setMfaState({ type: 'none' });
-      setMfaInProgress(false);
       navigate('/');
     }
     setLoading(false);
@@ -164,24 +126,15 @@ export default function Auth() {
     if (mfaState.type !== 'verification') return;
     
     setLoading(true);
-    try {
-      const { error } = await supabase.auth.mfa.verify({
-        factorId: mfaState.factorId,
-        challengeId: mfaState.challengeId,
-        code: data.code
-      });
-      
-      if (!error) {
-        // Clear MFA state after successful verification
-        setMfaState({ type: 'none' });
-        setMfaInProgress(false);
-        
-        console.log('🔐 [AUTH-COMPONENT] MFA verificado exitosamente, navegando a /');
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('MFA verification error:', error);
+    console.log('🔐 [AUTH-COMPONENT-V5.0] Verificando MFA con código:', data.code);
+    
+    const { error } = await verifyMFA(data.code, mfaState.challengeId);
+    
+    if (!error) {
+      console.log('🔐 [AUTH-COMPONENT-V5.0] MFA verificado exitosamente, navegando a /');
+      navigate('/');
     }
+    
     setLoading(false);
   };
 
@@ -190,12 +143,11 @@ export default function Auth() {
     navigate('/');
   };
 
-  console.log('🔐 version #0004');
-  console.log('🔐 [AUTH-COMPONENT-V4.0] RENDER - mfaState:', mfaState);
+  console.log('🔐 [AUTH-COMPONENT-V5.0] RENDER - mfaState:', mfaState);
   
   // MFA Verification Screen
   if (mfaState.type === 'verification') {
-    console.log('🔐 [AUTH-COMPONENT-V4.0] RENDERING MFA VERIFICATION SCREEN');
+    console.log('🔐 [AUTH-COMPONENT-V5.0] RENDERING MFA VERIFICATION SCREEN');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
