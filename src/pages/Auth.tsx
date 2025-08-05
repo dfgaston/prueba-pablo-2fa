@@ -33,6 +33,7 @@ export default function Auth() {
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [requiresMFAVerification, setRequiresMFAVerification] = useState(false);
   const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; factorId: string; email: string; password: string } | null>(null);
+  const [pendingMFAResult, setPendingMFAResult] = useState<any>(null);
 
   const authForm = useForm<AuthForm>({
     resolver: zodResolver(authSchema),
@@ -80,6 +81,9 @@ export default function Auth() {
       if (result.requiresMFA && result.challengeId && result.factorId) {
         console.log('🔐 [AUTH-COMPONENT-V3.0] Se requiere MFA - challengeId:', result.challengeId);
         
+        // Store the MFA result to trigger immediate render
+        setPendingMFAResult(result);
+        
         // Set MFA in progress FIRST to prevent navigation
         console.log('🔐 [AUTH-COMPONENT-V3.0] Configurando estados MFA...');
         setMfaInProgress(true);
@@ -95,6 +99,7 @@ export default function Auth() {
         console.log('🔐 [AUTH-COMPONENT-V3.0] Estados configurados:');
         console.log('🔐 [AUTH-COMPONENT-V3.0] - mfaInProgress: true');
         console.log('🔐 [AUTH-COMPONENT-V3.0] - requiresMFAVerification: true');
+        return; // Exit early to prevent further processing
       } else {
         console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
         
@@ -184,9 +189,11 @@ export default function Auth() {
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - requiresMFAVerification:', requiresMFAVerification);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - showMFASetup:', showMFASetup);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - mfaInProgress:', mfaInProgress);
+  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - pendingMFAResult:', !!pendingMFAResult);
   
-  if (requiresMFAVerification) {
-    console.log('🔐 [AUTH-COMPONENT-V3.0] RENDERING MFA VERIFICATION SCREEN');
+  // Check pending MFA result FIRST (immediate response)
+  if (pendingMFAResult && pendingMFAResult.requiresMFA) {
+    console.log('🔐 [AUTH-COMPONENT-V3.0] RENDERING MFA VERIFICATION SCREEN (from pendingMFAResult)');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
