@@ -50,10 +50,17 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    if (user && !showMFASetup) {
+    console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
+    console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
+    console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
+    
+    if (user && !showMFASetup && !requiresMFAVerification) {
+      console.log('🔐 [AUTH-COMPONENT] Usuario autenticado, navegando a /');
       navigate('/');
+    } else {
+      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification);
     }
-  }, [user, navigate, showMFASetup]);
+  }, [user, navigate, showMFASetup, requiresMFAVerification]);
 
   const handleSignUp = async (data: AuthForm) => {
     setLoading(true);
@@ -62,20 +69,33 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
+    console.log('🔐 [AUTH-COMPONENT] handleSignIn iniciado');
     setLoading(true);
     const result = await signIn(data.email, data.password);
     
+    console.log('🔐 [AUTH-COMPONENT] Resultado de signIn:', result);
+    
     if (!result.error) {
       if (result.requiresMFA && result.factors) {
+        console.log('🔐 [AUTH-COMPONENT] Se requiere MFA, factors:', result.factors);
+        
         // User has MFA enabled, create challenge
         const verifiedFactor = result.factors.find((factor: any) => factor.status === 'verified');
+        console.log('🔐 [AUTH-COMPONENT] Factor verificado encontrado:', verifiedFactor);
+        
         if (verifiedFactor) {
           try {
+            console.log('🔐 [AUTH-COMPONENT] Creando challenge MFA desde componente...');
             const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
               factorId: verifiedFactor.id
             });
             
+            console.log('🔐 [AUTH-COMPONENT] Resultado challenge desde componente:');
+            console.log('🔐 [AUTH-COMPONENT] - Challenge Data:', challengeData);
+            console.log('🔐 [AUTH-COMPONENT] - Challenge Error:', challengeError);
+            
             if (!challengeError && challengeData) {
+              console.log('🔐 [AUTH-COMPONENT] Configurando estado MFA...');
               setMfaChallenge({
                 challengeId: challengeData.id,
                 factorId: verifiedFactor.id,
@@ -83,24 +103,36 @@ export default function Auth() {
                 password: result.password!
               });
               setRequiresMFAVerification(true);
+              console.log('🔐 [AUTH-COMPONENT] Estados configurados - requiresMFAVerification:', true);
+            } else {
+              console.log('🔐 [AUTH-COMPONENT] Error en challenge, no se requiere MFA');
             }
           } catch (challengeError) {
-            console.error('MFA Challenge error:', challengeError);
+            console.error('🔐 [AUTH-COMPONENT] Excepción en MFA Challenge:', challengeError);
           }
         }
       } else {
+        console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
+        
         // No MFA required or user doesn't have MFA, check if we should show setup
         const { data: factors } = await supabase.auth.mfa.listFactors();
         const hasAnyMFA = factors && factors.totp && factors.totp.length > 0;
         
+        console.log('🔐 [AUTH-COMPONENT] hasAnyMFA:', hasAnyMFA);
+        
         if (!hasAnyMFA) {
+          console.log('🔐 [AUTH-COMPONENT] Mostrando setup MFA');
           setShowMFASetup(true);
         } else {
+          console.log('🔐 [AUTH-COMPONENT] Navegando a / directamente');
           navigate('/');
         }
       }
+    } else {
+      console.log('🔐 [AUTH-COMPONENT] Error en signIn:', result.error);
     }
     setLoading(false);
+    console.log('🔐 [AUTH-COMPONENT] handleSignIn completado');
   };
 
   const handleSetupMFA = async () => {
