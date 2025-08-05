@@ -25,15 +25,27 @@ const mfaSchema = z.object({
 type AuthForm = z.infer<typeof authSchema>;
 type MFAForm = z.infer<typeof mfaSchema>;
 
+type MFAState = 
+  | { type: 'none' }
+  | { 
+      type: 'verification'; 
+      challengeId: string; 
+      factorId: string; 
+      email: string; 
+      password: string; 
+    }
+  | { 
+      type: 'setup'; 
+      qrCode?: string; 
+      secret?: string; 
+      factorId?: string; 
+    };
+
 export default function Auth() {
-  const { user, signUp, signIn, setupMFA, enableMFA, mfaInProgress, setMfaInProgress } = useAuth();
+  const { user, signUp, signIn, setupMFA, enableMFA, setMfaInProgress } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [mfaSetup, setMfaSetup] = useState<{ qrCode: string; secret: string; factorId: string } | null>(null);
-  const [showMFASetup, setShowMFASetup] = useState(false);
-  const [requiresMFAVerification, setRequiresMFAVerification] = useState(false);
-  const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; factorId: string; email: string; password: string } | null>(null);
-  const [pendingMFAResult, setPendingMFAResult] = useState<any>(null);
+  const [mfaState, setMfaState] = useState<MFAState>({ type: 'none' });
 
   const authForm = useForm<AuthForm>({
     resolver: zodResolver(authSchema),
@@ -51,21 +63,18 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    console.log('🔐 version #0003');
+    console.log('🔐 version #0004');
     console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
-    console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
-    console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
-    console.log('🔐 [AUTH-COMPONENT] useEffect - mfaInProgress:', mfaInProgress);
-    console.log('🔐 [AUTH-COMPONENT] useEffect - pendingMFAResult:', !!pendingMFAResult);
+    console.log('🔐 [AUTH-COMPONENT] useEffect - mfaState:', mfaState);
     
-    // Don't navigate if we have a pending MFA result or any MFA flow is active
-    if (user && !showMFASetup && !requiresMFAVerification && !mfaInProgress && !pendingMFAResult) {
-      console.log('🔐 [AUTH-COMPONENT] Usuario autenticado, navegando a /');
+    // Don't navigate if we have any MFA flow active
+    if (user && mfaState.type === 'none') {
+      console.log('🔐 [AUTH-COMPONENT] Usuario autenticado y sin MFA pendiente, navegando a /');
       navigate('/');
     } else {
-      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'showMFASetup:', showMFASetup, 'requiresMFAVerification:', requiresMFAVerification, 'mfaInProgress:', mfaInProgress, 'pendingMFAResult:', !!pendingMFAResult);
+      console.log('🔐 [AUTH-COMPONENT] No navegando - user:', !!user, 'mfaState:', mfaState.type);
     }
-  }, [user, navigate, showMFASetup, requiresMFAVerification, mfaInProgress, pendingMFAResult]);
+  }, [user, navigate, mfaState]);
 
   const handleSignUp = async (data: AuthForm) => {
     setLoading(true);
@@ -74,38 +83,30 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
-    console.log('🔐 version #0003');
-    console.log('🔐 [AUTH-COMPONENT-V3.0] handleSignIn iniciado');
+    console.log('🔐 version #0004');
+    console.log('🔐 [AUTH-COMPONENT-V4.0] handleSignIn iniciado');
     setLoading(true);
     const result = await signIn(data.email, data.password);
     
     console.log('🔐 [AUTH-COMPONENT] Resultado de signIn:', result);
     
-    
     if (!result.error) {
       if (result.requiresMFA && result.challengeId && result.factorId) {
-        console.log('🔐 [AUTH-COMPONENT-V3.0] Se requiere MFA - challengeId:', result.challengeId);
+        console.log('🔐 [AUTH-COMPONENT-V4.0] Se requiere MFA - challengeId:', result.challengeId);
         
-        // Set all MFA states synchronously using functional updates
-        console.log('🔐 [AUTH-COMPONENT-V3.0] Configurando estados MFA de forma síncrona...');
-        
-        // Store the MFA result and challenge data
-        const challengeData = {
+        // Set MFA state to verification with all needed data
+        setMfaState({
+          type: 'verification',
           challengeId: result.challengeId,
           factorId: result.factorId,
           email: result.email!,
           password: result.password!
-        };
+        });
         
-        // Use a single batch update
-        setMfaChallenge(challengeData);
-        setRequiresMFAVerification(true);
         setMfaInProgress(true);
-        setPendingMFAResult(result);
-        
-        console.log('🔐 [AUTH-COMPONENT-V3.0] Estados MFA configurados - deberían aparecer en próximo render');
+        console.log('🔐 [AUTH-COMPONENT-V4.0] Estado MFA configurado para verificación');
         setLoading(false);
-        return; // Exit early to prevent further processing
+        return;
       } else {
         console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
         
@@ -117,7 +118,7 @@ export default function Auth() {
         
         if (!hasAnyMFA) {
           console.log('🔐 [AUTH-COMPONENT] Mostrando setup MFA');
-          setShowMFASetup(true);
+          setMfaState({ type: 'setup' });
         } else {
           console.log('🔐 [AUTH-COMPONENT] Navegando a / directamente');
           navigate('/');
@@ -135,7 +136,8 @@ export default function Auth() {
     const mfaData = await setupMFA();
     console.log('MFA data received:', mfaData);
     if (mfaData) {
-      setMfaSetup({
+      setMfaState({
+        type: 'setup',
         qrCode: mfaData.qrCode,
         secret: mfaData.secret,
         factorId: mfaData.factorId
@@ -146,34 +148,33 @@ export default function Auth() {
   };
 
   const handleEnableMFA = async (data: MFAForm) => {
-    if (!mfaSetup) return;
+    if (mfaState.type !== 'setup' || !mfaState.factorId) return;
     
     setLoading(true);
-    const { error } = await enableMFA(data.code, mfaSetup.factorId);
+    const { error } = await enableMFA(data.code, mfaState.factorId);
     if (!error) {
-      setShowMFASetup(false);
+      setMfaState({ type: 'none' });
+      setMfaInProgress(false);
       navigate('/');
     }
     setLoading(false);
   };
 
   const handleVerifyMFA = async (data: MFAForm) => {
-    if (!mfaChallenge) return;
+    if (mfaState.type !== 'verification') return;
     
     setLoading(true);
     try {
       const { error } = await supabase.auth.mfa.verify({
-        factorId: mfaChallenge.factorId,
-        challengeId: mfaChallenge.challengeId,
+        factorId: mfaState.factorId,
+        challengeId: mfaState.challengeId,
         code: data.code
       });
       
       if (!error) {
-        // Clear all MFA states after successful verification
-        setPendingMFAResult(null);
-        setRequiresMFAVerification(false);
+        // Clear MFA state after successful verification
+        setMfaState({ type: 'none' });
         setMfaInProgress(false);
-        setMfaChallenge(null);
         
         console.log('🔐 [AUTH-COMPONENT] MFA verificado exitosamente, navegando a /');
         navigate('/');
@@ -185,19 +186,16 @@ export default function Auth() {
   };
 
   const handleSkipMFA = () => {
-    setShowMFASetup(false);
+    setMfaState({ type: 'none' });
     navigate('/');
   };
 
-  console.log('🔐 version #0003');
-  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - requiresMFAVerification:', requiresMFAVerification);
-  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - showMFASetup:', showMFASetup);
-  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - mfaInProgress:', mfaInProgress);
-  console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - pendingMFAResult:', !!pendingMFAResult);
+  console.log('🔐 version #0004');
+  console.log('🔐 [AUTH-COMPONENT-V4.0] RENDER - mfaState:', mfaState);
   
-  // Check pending MFA result FIRST (immediate response)
-  if (pendingMFAResult && pendingMFAResult.requiresMFA) {
-    console.log('🔐 [AUTH-COMPONENT-V3.0] RENDERING MFA VERIFICATION SCREEN (from pendingMFAResult)');
+  // MFA Verification Screen
+  if (mfaState.type === 'verification') {
+    console.log('🔐 [AUTH-COMPONENT-V4.0] RENDERING MFA VERIFICATION SCREEN');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -239,7 +237,8 @@ export default function Auth() {
     );
   }
 
-  if (showMFASetup) {
+  // MFA Setup Screen
+  if (mfaState.type === 'setup') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -251,7 +250,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {!mfaSetup ? (
+            {!mfaState.qrCode ? (
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-4">
                   Configura la autenticación de dos factores para proteger tu cuenta
@@ -272,11 +271,11 @@ export default function Auth() {
                     Escanea este código QR con tu aplicación de autenticación
                   </p>
                   <div className="bg-white p-4 rounded-lg inline-block">
-                    <img src={mfaSetup.qrCode} alt="QR Code" className="w-40 h-40" />
+                    <img src={mfaState.qrCode} alt="QR Code" className="w-40 h-40" />
                   </div>
                   <Alert className="mt-4">
                     <AlertDescription>
-                      Código secreto: <code className="font-mono text-xs">{mfaSetup.secret}</code>
+                      Código secreto: <code className="font-mono text-xs">{mfaState.secret}</code>
                     </AlertDescription>
                   </Alert>
                 </div>
