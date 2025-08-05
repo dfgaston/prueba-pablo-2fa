@@ -51,7 +51,7 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    console.log('🔐 version #0002');
+    console.log('🔐 version #0003');
     console.log('🔐 [AUTH-COMPONENT] useEffect - user changed:', user);
     console.log('🔐 [AUTH-COMPONENT] useEffect - showMFASetup:', showMFASetup);
     console.log('🔐 [AUTH-COMPONENT] useEffect - requiresMFAVerification:', requiresMFAVerification);
@@ -74,35 +74,37 @@ export default function Auth() {
   };
 
   const handleSignIn = async (data: AuthForm) => {
-    console.log('🔐 version #0002');
+    console.log('🔐 version #0003');
     console.log('🔐 [AUTH-COMPONENT-V3.0] handleSignIn iniciado');
     setLoading(true);
     const result = await signIn(data.email, data.password);
     
     console.log('🔐 [AUTH-COMPONENT] Resultado de signIn:', result);
     
+    
     if (!result.error) {
       if (result.requiresMFA && result.challengeId && result.factorId) {
         console.log('🔐 [AUTH-COMPONENT-V3.0] Se requiere MFA - challengeId:', result.challengeId);
         
-        // Store the MFA result to trigger immediate render
-        setPendingMFAResult(result);
+        // Set all MFA states synchronously using functional updates
+        console.log('🔐 [AUTH-COMPONENT-V3.0] Configurando estados MFA de forma síncrona...');
         
-        // Set MFA in progress FIRST to prevent navigation
-        console.log('🔐 [AUTH-COMPONENT-V3.0] Configurando estados MFA...');
-        setMfaInProgress(true);
-        
-        // Use the existing challenge instead of creating a new one
-        setMfaChallenge({
+        // Store the MFA result and challenge data
+        const challengeData = {
           challengeId: result.challengeId,
           factorId: result.factorId,
           email: result.email!,
           password: result.password!
-        });
+        };
+        
+        // Use a single batch update
+        setMfaChallenge(challengeData);
         setRequiresMFAVerification(true);
-        console.log('🔐 [AUTH-COMPONENT-V3.0] Estados configurados:');
-        console.log('🔐 [AUTH-COMPONENT-V3.0] - mfaInProgress: true');
-        console.log('🔐 [AUTH-COMPONENT-V3.0] - requiresMFAVerification: true');
+        setMfaInProgress(true);
+        setPendingMFAResult(result);
+        
+        console.log('🔐 [AUTH-COMPONENT-V3.0] Estados MFA configurados - deberían aparecer en próximo render');
+        setLoading(false);
         return; // Exit early to prevent further processing
       } else {
         console.log('🔐 [AUTH-COMPONENT] No se requiere MFA, verificando si configurar...');
@@ -187,7 +189,7 @@ export default function Auth() {
     navigate('/');
   };
 
-  console.log('🔐 version #0002');
+  console.log('🔐 version #0003');
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - requiresMFAVerification:', requiresMFAVerification);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - showMFASetup:', showMFASetup);
   console.log('🔐 [AUTH-COMPONENT-V3.0] RENDER - mfaInProgress:', mfaInProgress);
