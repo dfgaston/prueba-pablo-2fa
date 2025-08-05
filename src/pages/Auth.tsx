@@ -31,6 +31,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<{ qrCode: string; secret: string; factorId: string } | null>(null);
   const [showMFASetup, setShowMFASetup] = useState(false);
+  const [requiresMFAVerification, setRequiresMFAVerification] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; factorId: string } | null>(null);
 
   const authForm = useForm<AuthForm>({
     resolver: zodResolver(authSchema),
@@ -62,6 +64,7 @@ export default function Auth() {
   const handleSignIn = async (data: AuthForm) => {
     setLoading(true);
     const { error } = await signIn(data.email, data.password);
+    
     if (!error) {
       // Check if user already has MFA configured
       const { data: factors } = await supabase.auth.mfa.listFactors();
@@ -74,8 +77,25 @@ export default function Auth() {
       console.log('Has verified MFA:', hasVerifiedMFA);
       
       if (hasVerifiedMFA) {
-        // User already has MFA, redirect to main page
-        navigate('/');
+        // User has MFA enabled, we need to challenge them
+        const verifiedFactor = factors.totp.find((factor: any) => factor.status === 'verified');
+        if (verifiedFactor) {
+          try {
+            const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+              factorId: verifiedFactor.id
+            });
+            
+            if (!challengeError && challengeData) {
+              setMfaChallenge({
+                challengeId: challengeData.id,
+                factorId: verifiedFactor.id
+              });
+              setRequiresMFAVerification(true);
+            }
+          } catch (challengeError) {
+            console.error('MFA Challenge error:', challengeError);
+          }
+        }
       } else {
         // User doesn't have MFA, show setup option
         setShowMFASetup(true);
@@ -111,10 +131,73 @@ export default function Auth() {
     setLoading(false);
   };
 
+  const handleVerifyMFA = async (data: MFAForm) => {
+    if (!mfaChallenge) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfaChallenge.factorId,
+        challengeId: mfaChallenge.challengeId,
+        code: data.code
+      });
+      
+      if (!error) {
+        setRequiresMFAVerification(false);
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('MFA verification error:', error);
+    }
+    setLoading(false);
+  };
+
   const handleSkipMFA = () => {
     setShowMFASetup(false);
     navigate('/');
   };
+
+  if (requiresMFAVerification) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
+            <CardTitle>Verificación 2FA</CardTitle>
+            <CardDescription>
+              Ingresa el código de tu aplicación de autenticación
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={mfaForm.handleSubmit(handleVerifyMFA)} className="space-y-4">
+              <div>
+                <Label htmlFor="verify-code">Código de verificación</Label>
+                <Input
+                  id="verify-code"
+                  placeholder="123456"
+                  {...mfaForm.register('code')}
+                  className="text-center text-lg tracking-widest"
+                  maxLength={6}
+                />
+                {mfaForm.formState.errors.code && (
+                  <p className="text-sm text-destructive mt-1">
+                    {mfaForm.formState.errors.code.message}
+                  </p>
+                )}
+              </div>
+              
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Verificar
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (showMFASetup) {
     return (
